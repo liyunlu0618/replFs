@@ -1,0 +1,6 @@
+cscope.out
+appl
+*.a
+*.o
+*.swp
+*.d
