@@ -22,7 +22,8 @@ typedef struct write_request {
 static write_request_t* write_log[MAXWRITES];
 
 static int
-server_init(unsigned short port, int drop_ratio, char *mountpoint) {
+server_init(unsigned short port, int drop_ratio, char *mountpoint)
+{
 	srand(time(NULL));
 	server_id = rand();
 	pkt_drop = drop_ratio;
@@ -36,7 +37,8 @@ server_init(unsigned short port, int drop_ratio, char *mountpoint) {
 }
 
 int
-main(int argc, char *argv[]) {
+main(int argc, char *argv[])
+{
 	unsigned short port;
 	int drop;
 	

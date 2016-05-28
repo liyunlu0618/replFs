@@ -69,7 +69,7 @@ typedef struct pkt_checkno {
 	uint32_t server_id;
 	uint32_t fd;
 	uint32_t commit_no;
-	uint64_t missing;
+	uint32_t missing[2];
 } pkt_checkno_t;
 
 typedef struct pkt_commit {

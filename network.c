@@ -54,3 +54,23 @@ network_init(unsigned short port, struct sockaddr *addr, int *sock)
 
 	return 0;
 }
+
+ssize_t
+network_recvfrom(int socket, void *buffer, size_t length, int flags,
+	struct sockaddr *addr, socklen_t *addr_len, int drop)
+{
+	int r;
+	ssize_t ret;
+
+	srand(time(NULL));
+	r = rand();
+
+	/* Need to receive the packet to drop it */
+	ret = recvfrom(socket, buffer, length, flags, addr, addr_len);
+
+	if ((r % 100) < drop) {
+		return -1;
+	}
+
+	return ret;
+}
