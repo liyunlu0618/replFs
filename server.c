@@ -1,7 +1,7 @@
 #include "network.h"
+#include "packet.h"
 
 #define MAXWRITES 64
-#define MAXBLOCKLENGTH 512
 #define REPLFSPORT 44055
 
 static struct sockaddr server_addr;
@@ -16,7 +16,7 @@ typedef struct write_request {
 	uint32_t write_no;
 	uint32_t byte_offset;
 	uint32_t blocksize;
-	char buffer[MAXBLOCKLENGTH];
+	char buffer[MAXBLOCKLEN];
 } write_request_t;
 
 static write_request_t* write_log[MAXWRITES];

@@ -1,3 +1,6 @@
+#ifndef MAIN_H
+#define MAIN_H
+
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/socket.h>
@@ -22,3 +25,5 @@
 #define debug_print(fmt, ...) \
 	do { if (DEBUGPRINT) fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
 	__LINE__, __func__, __VA_ARGS__); } while (0)
+
+#endif
