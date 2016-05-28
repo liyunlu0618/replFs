@@ -6,6 +6,19 @@
 #define MAXNAMELEN 128
 #define MAXBLOCKLEN 512
 
+#define PKT_INIT	0
+#define PKT_INITACK	1
+#define PKT_OPEN	2
+#define PKT_OPENACK	3
+#define PKT_WRITE	4
+#define PKT_CHECK	5
+#define PKT_CHECKYES	6
+#define PKT_CHECKNO	7
+#define PKTi_COMMIT	8
+#define PKT_COMMITACK	9
+#define PKT_ABORT	10
+#define PKT_ABORTACK	11
+
 typedef struct pkt_init {
 	uint32_t type;
 } pkt_init_t;
