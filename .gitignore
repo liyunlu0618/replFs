@@ -1,5 +1,7 @@
+writeTest.txt
 cscope.out
 appl
+replFsServer
 *.a
 *.o
 *.swp

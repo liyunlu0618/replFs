@@ -3,7 +3,7 @@
 int
 network_init(unsigned short port, struct sockaddr *addr, int *sock)
 {
-	sockaddr_in nulladdr;
+	struct sockaddr_in nulladdr;
 	int nullsock;
 	int reuse = 1;
 	u_char ttl = 1;
@@ -48,9 +48,9 @@ network_init(unsigned short port, struct sockaddr *addr, int *sock)
 		   &mreq, sizeof(mreq)) < 0)
 		return -1;
 
+	nulladdr.sin_addr.s_addr = htonl(REPLFSGROUP);
 	*sock = nullsock;
 	memcpy(addr, &nulladdr, sizeof(nulladdr));
-	addr->sin_addr.s_addr = htonl(REPLFSGROUP);
 
 	return 0;
 }

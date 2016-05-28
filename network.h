@@ -5,4 +5,6 @@
 
 #define REPLFSGROUP 0xe0010101
 
+int network_init(unsigned short, struct sockaddr *, int *);
+
 #endif
