@@ -23,8 +23,6 @@
 #include <stdbool.h>
 
 #define DEBUGPRINT 1
-#define debug_printf(fmt, ...) \
-	do { if (DEBUGPRINT) fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
-	__LINE__, __func__, __VA_ARGS__); } while (0)
-
+#define debug_printf(...) \
+	do { if (DEBUGPRINT) fprintf(stderr, ##__VA_ARGS__); } while (0)
 #endif

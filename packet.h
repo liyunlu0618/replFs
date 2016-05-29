@@ -14,7 +14,7 @@
 #define PKT_CHECK	5
 #define PKT_CHECKYES	6
 #define PKT_CHECKNO	7
-#define PKTi_COMMIT	8
+#define PKT_COMMIT	8
 #define PKT_COMMITACK	9
 #define PKT_ABORT	10
 #define PKT_ABORTACK	11

@@ -16,11 +16,13 @@
 
 #include "main.h"
 #include "network.h"
+#include "packet.h"
 #include <client.h>
 
 #define MAXBLOCKLEN	512
 #define MAXWRITES	64
 #define MAXSERVERS	16
+#define MAXNAMELEN	128
 
 static struct sockaddr client_addr;
 static int client_sock;
@@ -43,22 +45,45 @@ typedef struct server {
 } server_t;
 
 static write_request_t* write_log[MAXWRITES];
-static server_t *server_list[MAXSERVERS];
+static int server_cnt;
+
+static void
+client_process_pkt_init_ack()
+{
+	debug_printf("client process init ack\n");
+	pkt_initack_t piack;
+
+	while (1) {
+		network_recvfrom(client_sock, &piack, sizeof (piack), 0, NULL, NULL, pkt_drop);
+		debug_printf("recv'd %d\n", ntohl(piack.type));
+		if (ntohl(piack.type) == PKT_INITACK) {
+			debug_printf("server id %d\n", ntohl(piack.server_id));
+			break;
+		}
+	}
+}
 
 static int
 client_init(unsigned short portNum, int packetLoss, int numServers)
 {
+	server_cnt = numServers;
 	pkt_drop = packetLoss;
-	int i, ret;
+	int i;
+	pkt_init_t pi;
 
 	for (i = 0; i < MAXWRITES; i++)
 		write_log[i] = NULL;
-	for (i = 0; i < MAXSERVERS; i++)
-		server_list[i] = NULL;
 
-	ret = network_init(portNum, &client_addr, &client_sock);
+	if (network_init(portNum, &client_addr, &client_sock) < 0)
+		return -1;
+
+	pi.type = htonl(PKT_INIT);
+	sendto(client_sock, &pi, sizeof (pi), 0, &client_addr, sizeof (struct sockaddr));
+
+	client_process_pkt_init_ack();
 	debug_printf("client_sock %d\n", client_sock);
-	return ret;
+
+	return 0;
 }
 /* ------------------------------------------------------------------ */
 

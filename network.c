@@ -9,6 +9,7 @@ network_init(unsigned short port, struct sockaddr *addr, int *sock)
 	u_char ttl = 1;
 	struct ip_mreq mreq;
 
+	memset(&nulladdr, 0, sizeof (nulladdr));
 	nullsock = socket(AF_INET, SOCK_DGRAM, 0);
 	if (nullsock < 0)
 		return -1;
