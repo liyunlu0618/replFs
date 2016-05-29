@@ -48,7 +48,7 @@ main() {
   /* Write incrementing numbers to the file */
   /**************************************/
 
-  for ( loopCnt=0; loopCnt<128; loopCnt++ ) {
+  for ( loopCnt=0; loopCnt<8; loopCnt++ ) {
     sprintf( strData, "%d\n", loopCnt );
 
 #ifdef DEBUG
