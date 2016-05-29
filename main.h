@@ -5,6 +5,8 @@
 #include <sys/uio.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -21,6 +23,9 @@
 #include <assert.h>
 #include <time.h>
 #include <stdbool.h>
+
+#define FALSE 0
+#define TRUE 1
 
 #define DEBUGPRINT 1
 #define debug_printf(...) \

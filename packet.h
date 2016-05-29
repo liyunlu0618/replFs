@@ -31,7 +31,7 @@ typedef struct pkt_openack {
 	uint32_t type;
 	uint32_t server_id;
 	uint32_t fd;
-} pkt_openact_t;
+} pkt_openack_t;
 
 typedef struct pkt_write {
 	uint32_t type;
