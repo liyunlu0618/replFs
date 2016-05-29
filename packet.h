@@ -6,27 +6,20 @@
 #define MAXNAMELEN 128
 #define MAXBLOCKLEN 512
 
-#define PKT_INIT	0
-#define PKT_INITACK	1
-#define PKT_OPEN	2
-#define PKT_OPENACK	3
-#define PKT_WRITE	4
-#define PKT_CHECK	5
-#define PKT_CHECKYES	6
-#define PKT_CHECKNO	7
-#define PKT_COMMIT	8
-#define PKT_COMMITACK	9
-#define PKT_ABORT	10
-#define PKT_ABORTACK	11
+#define PKT_OPEN	0
+#define PKT_OPENACK	1
+#define PKT_WRITE	2
+#define PKT_CHECK	3
+#define PKT_CHECKYES	4
+#define PKT_CHECKNO	5
+#define PKT_COMMIT	6
+#define PKT_COMMITACK	7
+#define PKT_ABORT	8
+#define PKT_ABORTACK	9
 
-typedef struct pkt_init {
+typedef struct pkt_header {
 	uint32_t type;
-} pkt_init_t;
-
-typedef struct pkt_initack {
-	uint32_t type;
-	uint32_t server_id;
-} pkt_initack_t;
+} pkt_header_t;
 
 typedef struct pkt_open {
 	uint32_t type;

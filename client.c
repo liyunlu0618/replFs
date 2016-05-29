@@ -37,31 +37,8 @@ typedef struct write_request {
 	char buffer[MAXBLOCKLEN];
 } write_request_t;
 
-typedef struct server {
-	uint32_t server_id;
-	bool available;
-	uint32_t missing_writes[2];
-	bool vote;
-} server_t;
-
 static write_request_t* write_log[MAXWRITES];
 static int server_cnt;
-
-static void
-client_process_pkt_init_ack()
-{
-	debug_printf("client process init ack\n");
-	pkt_initack_t piack;
-
-	while (1) {
-		network_recvfrom(client_sock, &piack, sizeof (piack), 0, NULL, NULL, pkt_drop);
-		debug_printf("recv'd %d\n", ntohl(piack.type));
-		if (ntohl(piack.type) == PKT_INITACK) {
-			debug_printf("server id %d\n", ntohl(piack.server_id));
-			break;
-		}
-	}
-}
 
 static int
 client_init(unsigned short portNum, int packetLoss, int numServers)
@@ -69,7 +46,6 @@ client_init(unsigned short portNum, int packetLoss, int numServers)
 	server_cnt = numServers;
 	pkt_drop = packetLoss;
 	int i;
-	pkt_init_t pi;
 
 	for (i = 0; i < MAXWRITES; i++)
 		write_log[i] = NULL;
@@ -77,10 +53,6 @@ client_init(unsigned short portNum, int packetLoss, int numServers)
 	if (network_init(portNum, &client_addr, &client_sock) < 0)
 		return -1;
 
-	pi.type = htonl(PKT_INIT);
-	sendto(client_sock, &pi, sizeof (pi), 0, &client_addr, sizeof (struct sockaddr));
-
-	client_process_pkt_init_ack();
 	debug_printf("client_sock %d\n", client_sock);
 
 	return 0;

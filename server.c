@@ -39,17 +39,6 @@ server_init(unsigned short port, int drop_ratio, char *mountpoint)
 	return network_init(port, &server_addr, &server_sock);
 }
 
-static void
-server_process_pkt_init()
-{
-	debug_printf("server process pkt init\n");
-	pkt_initack_t out;
-
-	out.type = htonl(PKT_INITACK);
-	out.server_id = htonl(server_id);
-	sendto(server_sock, &out, sizeof (out), 0, &server_addr, sizeof (struct sockaddr));
-}
-
 int
 main(int argc, char *argv[])
 {
@@ -74,13 +63,9 @@ main(int argc, char *argv[])
 			0, NULL, NULL, pkt_drop) <= 0)
 			continue;
 
-		pkt_init_t *pi = (pkt_init_t *)packet;
+		pkt_header_t *ph = (pkt_header_t *)packet;
 
-		switch (ntohl(pi->type)) {
-
-		case PKT_INIT:
-			server_process_pkt_init();
-		break;
+		switch (ntohl(ph->type)) {
 
 		case PKT_OPEN:
 		break;
