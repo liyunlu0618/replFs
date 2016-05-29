@@ -57,7 +57,9 @@ static int
 server_init(unsigned short port, int drop_ratio, char *mountpoint)
 {
 	srand(time(NULL));
-	server_id = rand();
+	while ((server_id = rand()) == 0)
+		server_id = rand();
+
 	debug_printf("server_id: %d\n", server_id);
 	struct stat s;
 	int ret;
@@ -85,6 +87,7 @@ server_init(unsigned short port, int drop_ratio, char *mountpoint)
 static void
 server_send_open_ack()
 {
+	debug_printf("server send open ack\n");
 	pkt_openack_t out;
 
 	out.type = htonl(PKT_OPENACK);
@@ -107,6 +110,7 @@ server_process_pkt_open(void *packet)
 
 	open_fd = ntohl(p->fd);
 	strncpy(open_fname, p->filename, MAXNAMELEN);
+	debug_printf("server recv'd open file request: %s, fd: %d\n", p->filename, open_fd);
 	server_send_open_ack();
 	return 0;
 }

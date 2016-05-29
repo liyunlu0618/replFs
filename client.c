@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/select.h>
+#include <sys/types.h>
 #include <errno.h>
 #include <unistd.h>
 #include <assert.h>
@@ -24,9 +26,17 @@
 #define MAXSERVERS	16
 #define MAXNAMELEN	128
 
+#define RESEND		500
+#define TIMEOUT		5000
+
+#define NFDS		16
+
 static struct sockaddr client_addr;
 static int client_sock;
 static uint32_t pkt_drop;
+static int server_cnt;
+static uint32_t open_fd;
+static char open_fname[MAXNAMELEN];
 
 typedef struct write_request {
 	uint32_t fd;
@@ -37,8 +47,21 @@ typedef struct write_request {
 	char buffer[MAXBLOCKLEN];
 } write_request_t;
 
+static bool
+has_open_file()
+{
+	return open_fname[0] != '\0';
+}
+
+static bool
+timeout_triggered(struct timeval *now, struct timeval *last, int diff)
+{
+	return ((now->tv_sec - last->tv_sec) * 1000
+		+ (now->tv_usec - last->tv_usec) / 1000) >= diff;
+
+}
+
 static write_request_t* write_log[MAXWRITES];
-static int server_cnt;
 
 static int
 client_init(unsigned short portNum, int packetLoss, int numServers)
@@ -77,26 +100,104 @@ InitReplFs(unsigned short portNum, int packetLoss, int numServers)
 	return 0;  
 }
 
+static int
+client_process_open_ack(pkt_openack_t *p, uint32_t *act_cnt)
+{
+	uint32_t id = ntohl(p->server_id);
+	int i = 0;
+
+	for (i = 0; i < MAXSERVERS; i++) {
+		if (act_cnt[i] == id) break;
+
+		if (act_cnt[i] == 0) {
+			act_cnt[i] = id;
+			break;
+		}
+	}
+
+	for (i = 0; i < MAXSERVERS; i++) {
+		if (act_cnt[i] == 0) break;
+	}
+
+	return i;
+}
+
+static int
+client_open_file(char *filename)
+{
+	uint32_t ack_cnt[MAXSERVERS];
+	memset(ack_cnt, 0, sizeof (ack_cnt));
+
+	pkt_open_t out;
+	pkt_openack_t in;
+	struct timeval orig, last, now;
+
+	fd_set fdset;
+	FD_ZERO(&fdset);
+	FD_SET(client_sock, &fdset);
+
+	struct timeval resend;
+	resend.tv_sec = 0;
+	resend.tv_usec = RESEND * 1000;
+
+	if (has_open_file()) {
+		if (strcmp(open_fname, filename) == 0) return open_fd;
+		debug_printf("Already opened a file\n");
+		return -1;
+	}
+
+	if (strlen(filename) >= MAXNAMELEN) {
+		debug_printf("File name too long\n");
+		return -1;
+	}
+
+	srand(time(NULL));
+	open_fd = rand();
+	debug_printf("open fd: %d\n", open_fd);
+
+	out.type = htonl(PKT_OPEN);
+	out.fd = htonl(open_fd);
+	strncpy(out.filename, filename, strlen(filename));
+
+	sendto(client_sock, &out, sizeof (out), 0, &client_addr, sizeof (struct sockaddr));
+	gettimeofday(&last, NULL);
+	gettimeofday(&orig, NULL);
+
+	while (1) {
+		gettimeofday(&now, NULL);
+		if (timeout_triggered(&now, &orig, TIMEOUT)) break;
+
+		if (timeout_triggered(&now, &last, RESEND)) {
+			sendto(client_sock, &out, sizeof (out), 0, &client_addr, sizeof (struct sockaddr));
+			gettimeofday(&last, NULL);
+		}
+
+		if (select(NFDS, &fdset, NULL, NULL, &resend) <= 0)
+			continue;
+
+		if (network_recvfrom(client_sock, &in, sizeof (in), 0, NULL, NULL, pkt_drop) < 0)
+			continue;
+
+		if (ntohl(in.type) != PKT_OPENACK || ntohl(in.fd) != open_fd)
+			continue;
+
+		int ret = client_process_open_ack(&in, ack_cnt);
+		if (ret == server_cnt) {
+			strncpy(open_fname, filename, strlen(filename));
+			debug_printf("Open file %s success\n", filename);
+			return open_fd;
+		}
+	}
+
+	return -1;
+}
+
 /* ------------------------------------------------------------------ */
 
 int
-OpenFile( char * fileName ) {
-  int fd;
-
-  ASSERT( fileName );
-
-#ifdef DEBUG
-  printf( "OpenFile: Opening File '%s'\n", fileName );
-#endif
-
-  fd = open( fileName, O_WRONLY|O_CREAT, S_IRUSR|S_IWUSR );
-
-#ifdef DEBUG
-  if ( fd < 0 )
-    perror( "OpenFile" );
-#endif
-
-  return( fd );
+OpenFile(char * fileName)
+{
+	return client_open_file(fileName);
 }
 
 /* ------------------------------------------------------------------ */
