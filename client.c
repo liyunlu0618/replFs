@@ -309,8 +309,10 @@ client_process_checkres(void *packet, uint32_t *ack_cnt)
 		debug_printf("no write missing\n");
 		for (i = 0; i < MAXSERVERS; i++) {
 			if (ack_cnt[i] == p->server_id) break;
-			if (ack_cnt[i] == 0)
+			if (ack_cnt[i] == 0) {
 				ack_cnt[i] = p->server_id;
+				break;
+			}
 		}
 	} else {
 		for (i = 0; i < write_no; i++) {
@@ -411,8 +413,10 @@ client_process_commitabortack(void *packet, uint32_t *ack_cnt)
 	int i = 0;
 	for (i = 0; i < MAXSERVERS; i++) {
 		if (ack_cnt[i] == p->server_id) break;
-		if (ack_cnt[i] == 0)
+		if (ack_cnt[i] == 0) {
 			ack_cnt[i] = p->server_id;
+			break;
+		}
 	}
 
 	for (i = 0; i < MAXSERVERS; i++) {
