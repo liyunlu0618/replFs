@@ -160,7 +160,8 @@ client_open_file(char *filename)
 	}
 
 	srand(time(NULL));
-	open_fd = rand();
+	while ((open_fd = rand()) == 0) open_fd = rand();
+
 	debug_printf("open fd: %d\n", open_fd);
 
 	out.type = htonl(PKT_OPEN);
@@ -244,7 +245,6 @@ client_write_file(int fd, char *buffer, int offset, int blocksize)
 	out.byte_offset = htonl(offset);
 	out.blocksize = htonl(blocksize);
 	memcpy(out.data, buffer, blocksize);
-	debug_printf("writing %s\n", out.data);
 
 	sendto(client_sock, &out, sizeof (out), 0, &client_addr, sizeof (struct sockaddr));
 
@@ -615,6 +615,7 @@ Abort( int fd )
 int
 CloseFile( int fd )
 {
+	int ret = 0;
 	ASSERT( fd >= 0 );
 
 #ifdef DEBUG
@@ -627,7 +628,9 @@ CloseFile( int fd )
 	open_fname[0] = '\0';
 	if (write_log[0] == NULL) return 0;
 
-	return Commit(fd);
+	ret = Commit(fd);
+	open_fd = 0;
+	return ret;
 }
 
 /* ------------------------------------------------------------------ */

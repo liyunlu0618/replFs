@@ -179,6 +179,8 @@ server_do_write()
 	fullpath = calloc(sizeof (char), len);
 	snprintf(fullpath, len, "%s/%s", server_mountpoint, open_fname);
 
+	debug_printf("server do write to file %s\n", fullpath);
+
 	fd = open(fullpath, O_WRONLY|O_CREAT, S_IRUSR|S_IWUSR);
 
 	for (i = 0; i < MAXWRITES; i++) {
@@ -244,7 +246,7 @@ main(int argc, char *argv[])
 	drop = atoi(argv[6]);
 
 	if (server_init(port, drop, argv[4]) < 0)
-		exit (-1);
+		exit(-1);
 
 	while (1) {
 		if (network_recvfrom(server_sock, packet, sizeof (packet),
