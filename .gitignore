@@ -7,3 +7,4 @@ replFsServer
 *.swp
 *.d
 devtest/test*
+mount
