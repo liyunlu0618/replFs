@@ -6,3 +6,4 @@ replFsServer
 *.o
 *.swp
 *.d
+devtest/test*
