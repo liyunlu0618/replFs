@@ -592,8 +592,6 @@ Abort( int fd )
 int
 CloseFile( int fd )
 {
-	int ret;
-
 	ASSERT( fd >= 0 );
 
 #ifdef DEBUG
@@ -603,10 +601,10 @@ CloseFile( int fd )
 	/*****************************/
 	/* Check for Commit or Abort */
 	/*****************************/
-	ret = Commit(fd);
 	open_fname[0] = '\0';
+	if (write_log[0] == NULL) return 0;
 
-	return ret;
+	return Commit(fd);
 }
 
 /* ------------------------------------------------------------------ */
