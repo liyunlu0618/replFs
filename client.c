@@ -25,6 +25,7 @@
 #define MAXWRITES	64
 #define MAXSERVERS	16
 #define MAXNAMELEN	128
+#define MAXPACKETSIZE	1024
 
 #define RESEND		500
 #define TIMEOUT		5000
@@ -45,7 +46,6 @@ typedef struct write_request {
 } write_request_t;
 
 static write_request_t* write_log[MAXWRITES];
-static uint32_t commit_no;
 static uint32_t write_no;
 
 static bool
@@ -227,7 +227,6 @@ client_write_file(int fd, char *buffer, int offset, int blocksize)
 
 	out.type = htonl(PKT_WRITE);
 	out.fd = htonl(open_fd);
-	out.commit_no = htonl(commit_no);
 	out.write_no = htonl(write_no);
 	out.byte_offset = htonl(offset);
 	out.blocksize = htonl(blocksize);
@@ -264,27 +263,159 @@ WriteBlock( int fd, char * buffer, int byteOffset, int blockSize ) {
 	return client_write_file(fd, buffer, byteOffset, blockSize);
 }
 
+static void
+client_resend_write(int i)
+{
+	pkt_write_t out;
+	write_request_t *wr = write_log[i];
+
+	out.type = htonl(PKT_WRITE);
+	out.fd = htonl(open_fd);
+	out.write_no = htonl(i);
+	out.byte_offset = htonl(wr->byte_offset);
+	out.blocksize = htonl(wr->blocksize);
+	memcpy(out.data, wr->buffer, wr->blocksize);
+
+	sendto(client_sock, &out, sizeof (out), 0, &client_addr, sizeof (struct sockaddr));
+}
+
+static int
+client_process_checkres(void *packet, uint32_t *ack_cnt)
+{
+	int i;
+	pkt_checkres_t *p = (pkt_checkres_t *)packet;
+	p->type = ntohl(p->type);
+	p->server_id = ntohl(p->server_id);
+	p->fd = ntohl(p->fd);
+	p->missing[0] = ntohl(p->missing[0]);
+	p->missing[1] = ntohl(p->missing[1]);
+
+	if (p->missing[0] == 0 && p->missing[1] == 0) {
+		for (i = 0; i < MAXSERVERS; i++) {
+			if (ack_cnt[i] == p->server_id) break;
+			if (ack_cnt[i] == 0)
+				ack_cnt[i] = p->server_id;
+		}
+	} else {
+		for (i = 0; i < write_no; i++) {
+			if (i < 32) {
+				if (p->missing[0] & (1 << i))
+					client_resend_write(i);
+			} else {
+				if (p->missing[1] & (1 << (i - 32)))
+					client_resend_write(i);
+			}
+		}
+	}
+
+	for (i = 0; i < MAXSERVERS; i++) {
+		if (ack_cnt[i] == 0) break;
+	}
+
+	return i;
+}
+
+static int
+client_check_write_log(int fd)
+{
+	ASSERT(fd == open_fd);
+
+	int ret = 0;
+	uint32_t ack_cnt[MAXSERVERS];
+	memset(ack_cnt, 0, sizeof (ack_cnt));
+
+	pkt_check_t out;
+	pkt_checkres_t in;
+	memset(&in, 0, sizeof (in));
+
+	struct timeval orig, last, now;
+
+	fd_set fdset;
+
+	struct timeval resend;
+	resend.tv_sec = 0;
+	resend.tv_usec = RESEND * 1000;
+
+	out.type = htonl(PKT_CHECK);
+	out.fd = htonl(open_fd);
+	out.num_writes = htonl(write_no);
+
+	sendto(client_sock, &out, sizeof (out), 0, &client_addr, sizeof (struct sockaddr));
+	gettimeofday(&last, NULL);
+	gettimeofday(&orig, NULL);
+
+	while (1) {
+		gettimeofday(&now, NULL);
+		if (timeout_triggered(&now, &orig, TIMEOUT)) break;
+
+		if (timeout_triggered(&now, &last, RESEND)) {
+			debug_printf("resend triggered\n");
+			sendto(client_sock, &out, sizeof (out), 0, &client_addr, sizeof (struct sockaddr));
+			gettimeofday(&last, NULL);
+		}
+
+		FD_ZERO(&fdset);
+		FD_SET(client_sock, &fdset);
+		if (select(NFDS, &fdset, NULL, NULL, &resend) <= 0) {
+			//debug_printf("wait for socket timed out\n");
+			continue;
+		}
+
+		if (network_recvfrom(client_sock, &in, sizeof (in), 0, NULL, NULL, pkt_drop) < 0) {
+			debug_printf("packet drop\n");
+			continue;
+		}
+
+		if (ntohl(in.type) != PKT_CHECKRES && ntohl(in.fd != open_fd)) {
+			debug_printf("wrong packet\n");
+			continue;
+		}
+
+		ret = client_process_checkres(&in, ack_cnt);
+		if (ret == server_cnt) {
+			debug_printf("all ready to commit\n");
+			break;
+		}
+	}
+
+	ASSERT(ret < server_cnt);
+	server_cnt = ret;
+	return 0;
+}
+
+static int
+client_commit(int fd)
+{
+	return 0;
+}
+
 /* ------------------------------------------------------------------ */
 
 int
 Commit( int fd ) {
-  ASSERT( fd >= 0 );
+	ASSERT( fd >= 0 );
+	if (fd != open_fd) {
+		debug_printf("wrong fd\n");
+		return -1;
+	}
 
 #ifdef DEBUG
-  printf( "Commit: FD=%d\n", fd );
+	printf( "Commit: FD=%d\n", fd );
 #endif
 
 	/****************************************************/
 	/* Prepare to Commit Phase			    */
 	/* - Check that all writes made it to the server(s) */
 	/****************************************************/
-
+	
+	if (client_check_write_log(fd) < 0) return -1;
 	/****************/
 	/* Commit Phase */
 	/****************/
 
-  return 0;
+	if (client_commit(fd) < 0) return -1;
 
+	return 0;
 }
 
 /* ------------------------------------------------------------------ */
@@ -329,7 +460,3 @@ CloseFile( int fd ) {
 }
 
 /* ------------------------------------------------------------------ */
-
-
-
-

@@ -4,6 +4,7 @@
 #define MAXWRITES	64
 #define REPLFSPORT	44055
 #define MAXPACKETSIZE	1024
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 static struct sockaddr server_addr;
 static int server_sock;
@@ -20,7 +21,6 @@ typedef struct write_request {
 } write_request_t;
 
 static write_request_t* write_log[MAXWRITES];
-static uint32_t commit_no;
 
 static bool
 has_open_file()
@@ -118,12 +118,11 @@ server_process_pkt_write(void *packet)
 {
 	pkt_write_t *p = (pkt_write_t *) packet;
 	p->fd = ntohl(p->fd);
-	p->commit_no = ntohl(p->commit_no);
 	p->write_no = ntohl(p->write_no);
 	p->byte_offset = ntohl(p->byte_offset);
 	p->blocksize = ntohl(p->blocksize);
 
-	if (p->fd != open_fd || p->commit_no != commit_no || write_log[p->write_no] != NULL) {
+	if (p->fd != open_fd || write_log[p->write_no] != NULL) {
 		debug_printf("wrong write request, ignored\n");
 		return;
 	}
@@ -136,6 +135,35 @@ server_process_pkt_write(void *packet)
 	memcpy(wr->buffer, p->data, p->blocksize);
 	write_log[p->write_no] = wr;
 	debug_printf("server write no %d\n", p->write_no);
+}
+
+static void
+server_process_pkt_check(void *packet)
+{
+	int i = 0;
+	int missing[2];
+	memset(missing, 0, sizeof (missing));
+	pkt_checkres_t out;
+
+	pkt_check_t *p = (pkt_check_t *)packet;
+	p->fd = ntohl(p->fd);
+	p->num_writes = ntohl(p->num_writes);
+
+	for (i = 0; i < p->num_writes; i++) {
+		if (write_log[i] == NULL) {
+			if (i < 32)
+				missing[0] |= (1 << i);
+			else
+				missing[1] |= (1 << (i - 32));
+		}
+	}
+
+	out.type = htonl(PKT_CHECKRES);
+	out.server_id = htonl(server_id);
+	out.fd = htonl(open_fd);
+	out.missing[0] = htonl(missing[0]);
+	out.missing[1] = htonl(missing[1]);
+	sendto(server_sock, &out, sizeof (out), 0, &server_addr, sizeof (struct sockaddr));
 }
 
 int
@@ -175,6 +203,7 @@ main(int argc, char *argv[])
 		break;
 
 		case PKT_CHECK:
+			server_process_pkt_check(packet);
 		break;
 
 		case PKT_COMMIT:
