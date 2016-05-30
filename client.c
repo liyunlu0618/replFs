@@ -56,6 +56,8 @@ clear_log()
 		free(write_log[i]);
 		write_log[i] = NULL;
 	}
+
+	write_no = 0;
 }
 
 static bool
@@ -77,10 +79,6 @@ client_init(unsigned short portNum, int packetLoss, int numServers)
 {
 	server_cnt = numServers;
 	pkt_drop = packetLoss;
-	int i;
-
-	for (i = 0; i < MAXWRITES; i++)
-		write_log[i] = NULL;
 
 	if (network_init(portNum, &client_addr, &client_sock) < 0)
 		return -1;
@@ -190,7 +188,7 @@ client_open_file(char *filename)
 			continue;
 		}
 
-		if (network_recvfrom(client_sock, &in, sizeof (in), 0, NULL, NULL, pkt_drop) < 0) {
+		if (network_recvfrom(client_sock, &in, sizeof (in), 0, NULL, NULL, pkt_drop) <= 0) {
 			debug_printf("packet drop\n");
 			continue;
 		}
@@ -377,7 +375,7 @@ client_check_write_log()
 			continue;
 		}
 
-		if (network_recvfrom(client_sock, &in, sizeof (in), 0, NULL, NULL, pkt_drop) < 0) {
+		if (network_recvfrom(client_sock, &in, sizeof (in), 0, NULL, NULL, pkt_drop) <= 0) {
 			debug_printf("packet drop\n");
 			continue;
 		}
@@ -468,7 +466,7 @@ client_commit()
 			continue;
 		}
 
-		if (network_recvfrom(client_sock, &in, sizeof (in), 0, NULL, NULL, pkt_drop) < 0) {
+		if (network_recvfrom(client_sock, &in, sizeof (in), 0, NULL, NULL, pkt_drop) <= 0) {
 			debug_printf("packet drop\n");
 			continue;
 		}
@@ -567,7 +565,7 @@ client_abort()
 			continue;
 		}
 
-		if (network_recvfrom(client_sock, &in, sizeof (in), 0, NULL, NULL, pkt_drop) < 0) {
+		if (network_recvfrom(client_sock, &in, sizeof (in), 0, NULL, NULL, pkt_drop) <= 0) {
 			debug_printf("packet drop\n");
 			continue;
 		}

@@ -4,7 +4,6 @@
 #define MAXWRITES	64
 #define REPLFSPORT	44055
 #define MAXPACKETSIZE	1024
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 static struct sockaddr server_addr;
 static int server_sock;
@@ -64,10 +63,6 @@ server_init(unsigned short port, int drop_ratio, char *mountpoint)
 
 	pkt_drop = drop_ratio;
 	server_mountpoint = strdup(mountpoint);
-
-	int i = 0;
-	for (i = 0; i < MAXWRITES; i++)
-		write_log[i] = NULL;
 
 	ret = stat(mountpoint, &s);
 	if (ret == 0 || errno != ENOENT) {
