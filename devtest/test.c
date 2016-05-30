@@ -330,10 +330,16 @@ appl8() {
     fd = openFile( "file8" );
 
     // write third transaction starting at offset 50*512
-    for (i = 0; i < 100; i++)
+    for (i = 0; i < 50; i++)
         retVal = WriteBlock( fd, commitStrBuf, 50 * 512 + i * 512 , 512 );
 
     retVal = commit( fd );
+
+    for ( ; i < 100; i++)
+        retVal = WriteBlock( fd, commitStrBuf, 50 * 512 + i * 512 , 512 );
+
+    retVal = commit( fd );
+
     retVal = closeFile( fd );
 }
 
@@ -362,10 +368,16 @@ static appl10() {
     fd = openFile( "file10" );
 
     // zero out the file first
-    for (i = 0; i < 100; i++)
+    for (i = 0; i < 50; i++)
         retVal = WriteBlock( fd, commitStrBuf, i * 256 , 256 );
 
     retVal = commit( fd );
+
+    for ( ; i < 100; i++)
+        retVal = WriteBlock( fd, commitStrBuf, i * 256 , 256 );
+
+    retVal = commit( fd );
+
     retVal = closeFile( fd );
 
     fd = openFile( "file10" );

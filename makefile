@@ -29,13 +29,13 @@ $(C_DIR)/libclientReplFs.a:	$(CLIENT_OBJECTS)
 	ar cr libclientReplFs.a $(CLIENT_OBJECTS)
 	ranlib libclientReplFs.a
 
-client.o:	client.c client.h network.h
+client.o:	client.c main.h client.h network.h
 	$(CCF) -c $(INCDIR) client.c
 
-server.o:	server.c network.h
+server.o:	server.c main.h network.h
 	$(CCF) -c $(INCDIR) server.c
 
-network.o:	network.c network.h
+network.o:	network.c main.h network.h
 	$(CCF) -c $(INCDIR) network.c
 
 clean:

@@ -53,7 +53,10 @@ clear_log()
 static int
 server_init(unsigned short port, int drop_ratio, char *mountpoint)
 {
-	srand(time(NULL));
+	struct timeval time;
+	gettimeofday(&time, NULL);
+
+	srand((time.tv_sec * 1000) + (time.tv_usec / 1000));
 	while ((server_id = rand()) == 0)
 		server_id = rand();
 
@@ -72,7 +75,10 @@ server_init(unsigned short port, int drop_ratio, char *mountpoint)
 
 	ret = mkdir(mountpoint, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 
-	if (ret != 0) return -1;
+	if (ret != 0) {
+		printf("server %d cannot make directory\n", server_id);
+		return -1;
+	}
 
 	return network_init(port, &server_addr, &server_sock);
 }
