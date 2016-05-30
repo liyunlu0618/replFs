@@ -178,7 +178,7 @@ client_open_file(char *filename)
 		if (timeout_triggered(&now, &orig, TIMEOUT)) break;
 
 		if (timeout_triggered(&now, &last, RESEND)) {
-			debug_printf("resend triggered\n");
+			debug_printf("open resend triggered\n");
 			sendto(client_sock, &out, sizeof (out), 0, &client_addr, sizeof (struct sockaddr));
 			gettimeofday(&last, NULL);
 		}
@@ -195,8 +195,13 @@ client_open_file(char *filename)
 			continue;
 		}
 
-		if (ntohl(in.type) != PKT_OPENACK || ntohl(in.fd) != open_fd) {
-			debug_printf("wrong packet\n");
+		if (ntohl(in.type) != PKT_OPENACK) {
+			debug_printf("open wrong type\n");
+			continue;
+		}
+
+		if (ntohl(in.fd) != open_fd) {
+			debug_printf("open wrong fd %d %d\n", ntohl(in.fd), open_fd);
 			continue;
 		}
 
@@ -301,6 +306,7 @@ client_process_checkres(void *packet, uint32_t *ack_cnt)
 	p->missing[1] = ntohl(p->missing[1]);
 
 	if (p->missing[0] == 0 && p->missing[1] == 0) {
+		debug_printf("no write missing\n");
 		for (i = 0; i < MAXSERVERS; i++) {
 			if (ack_cnt[i] == p->server_id) break;
 			if (ack_cnt[i] == 0)
@@ -319,6 +325,7 @@ client_process_checkres(void *packet, uint32_t *ack_cnt)
 	}
 
 	for (i = 0; i < MAXSERVERS; i++) {
+		debug_printf("check write %dth server, id %d\n", i, ack_cnt[i]);
 		if (ack_cnt[i] == 0) break;
 	}
 
@@ -357,7 +364,7 @@ client_check_write_log()
 		if (timeout_triggered(&now, &orig, TIMEOUT)) break;
 
 		if (timeout_triggered(&now, &last, RESEND)) {
-			debug_printf("resend triggered\n");
+			debug_printf("check write resend triggered\n");
 			sendto(client_sock, &out, sizeof (out), 0, &client_addr, sizeof (struct sockaddr));
 			gettimeofday(&last, NULL);
 		}
@@ -365,7 +372,6 @@ client_check_write_log()
 		FD_ZERO(&fdset);
 		FD_SET(client_sock, &fdset);
 		if (select(NFDS, &fdset, NULL, NULL, &resend) <= 0) {
-			//debug_printf("wait for socket timed out\n");
 			continue;
 		}
 
@@ -374,8 +380,13 @@ client_check_write_log()
 			continue;
 		}
 
-		if (ntohl(in.type) != PKT_CHECKRES && ntohl(in.fd != open_fd)) {
-			debug_printf("wrong packet\n");
+		if (ntohl(in.type) != PKT_CHECKRES) {
+			debug_printf("check wrong packet\n");
+			continue;
+		}
+
+		if (ntohl(in.fd) != open_fd) {
+			debug_printf("check wrong fd %d %d\n", ntohl(in.fd), open_fd);
 			continue;
 		}
 
@@ -386,7 +397,7 @@ client_check_write_log()
 		}
 	}
 
-	ASSERT(ret < server_cnt);
+	ASSERT(ret <= server_cnt);
 	server_cnt = ret;
 	return 0;
 }
@@ -441,7 +452,7 @@ client_commit()
 		if (timeout_triggered(&now, &orig, TIMEOUT)) break;
 
 		if (timeout_triggered(&now, &last, RESEND)) {
-			debug_printf("resend triggered\n");
+			debug_printf("commit resend triggered\n");
 			sendto(client_sock, &out, sizeof (out), 0, &client_addr, sizeof (struct sockaddr));
 			gettimeofday(&last, NULL);
 		}
@@ -458,8 +469,13 @@ client_commit()
 			continue;
 		}
 
-		if (ntohl(in.type) != PKT_COMMITABORTACK && ntohl(in.fd != open_fd)) {
-			debug_printf("wrong packet\n");
+		if (ntohl(in.type) != PKT_COMMITABORTACK) {
+			debug_printf("commit wrong packet\n");
+			continue;
+		}
+
+		if (ntohl(in.fd) != open_fd) {
+			debug_printf("commit wrong fd %d %d\n", ntohl(in.fd), open_fd);
 			continue;
 		}
 
@@ -470,7 +486,7 @@ client_commit()
 		}
 	}
 
-	ASSERT(ret < server_cnt);
+	ASSERT(ret <= server_cnt);
 	server_cnt = ret;
 	clear_log();
 	return 0;
@@ -535,7 +551,7 @@ client_abort()
 		if (timeout_triggered(&now, &orig, TIMEOUT)) break;
 
 		if (timeout_triggered(&now, &last, RESEND)) {
-			debug_printf("resend triggered\n");
+			debug_printf("abort resend triggered\n");
 			sendto(client_sock, &out, sizeof (out), 0, &client_addr, sizeof (struct sockaddr));
 			gettimeofday(&last, NULL);
 		}
@@ -552,8 +568,13 @@ client_abort()
 			continue;
 		}
 
-		if (ntohl(in.type) != PKT_COMMITABORTACK && ntohl(in.fd != open_fd)) {
-			debug_printf("wrong packet\n");
+		if (ntohl(in.type) != PKT_COMMITABORTACK) {
+			debug_printf("abort wrong packet\n");
+			continue;
+		}
+
+		if (ntohl(in.fd) != open_fd) {
+			debug_printf("abort wrong fd %d %d\n", ntohl(in.fd), open_fd);
 			continue;
 		}
 
@@ -564,7 +585,7 @@ client_abort()
 		}
 	}
 
-	ASSERT(ret < server_cnt);
+	ASSERT(ret <= server_cnt);
 	server_cnt = ret;
 	clear_log();
 	return 0;
