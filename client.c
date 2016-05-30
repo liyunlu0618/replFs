@@ -101,22 +101,25 @@ InitReplFs(unsigned short portNum, int packetLoss, int numServers)
 }
 
 static int
-client_process_open_ack(pkt_openack_t *p, uint32_t *act_cnt)
+client_process_open_ack(pkt_openack_t *p, uint32_t *ack_cnt)
 {
 	uint32_t id = ntohl(p->server_id);
+	debug_printf("new server id %d\n", id);
+
 	int i = 0;
 
 	for (i = 0; i < MAXSERVERS; i++) {
-		if (act_cnt[i] == id) break;
+		if (ack_cnt[i] == id) break;
 
-		if (act_cnt[i] == 0) {
-			act_cnt[i] = id;
+		if (ack_cnt[i] == 0) {
+			ack_cnt[i] = id;
 			break;
 		}
 	}
 
 	for (i = 0; i < MAXSERVERS; i++) {
-		if (act_cnt[i] == 0) break;
+		if (ack_cnt[i] == 0) break;
+		debug_printf("%d: server id %d\n", i, ack_cnt[i]);
 	}
 
 	return i;
@@ -133,8 +136,6 @@ client_open_file(char *filename)
 	struct timeval orig, last, now;
 
 	fd_set fdset;
-	FD_ZERO(&fdset);
-	FD_SET(client_sock, &fdset);
 
 	struct timeval resend;
 	resend.tv_sec = 0;
@@ -168,18 +169,27 @@ client_open_file(char *filename)
 		if (timeout_triggered(&now, &orig, TIMEOUT)) break;
 
 		if (timeout_triggered(&now, &last, RESEND)) {
+			debug_printf("resend triggered\n");
 			sendto(client_sock, &out, sizeof (out), 0, &client_addr, sizeof (struct sockaddr));
 			gettimeofday(&last, NULL);
 		}
 
-		if (select(NFDS, &fdset, NULL, NULL, &resend) <= 0)
+		FD_ZERO(&fdset);
+		FD_SET(client_sock, &fdset);
+		if (select(NFDS, &fdset, NULL, NULL, &resend) <= 0) {
+			//debug_printf("wait for socket timed out\n");
 			continue;
+		}
 
-		if (network_recvfrom(client_sock, &in, sizeof (in), 0, NULL, NULL, pkt_drop) < 0)
+		if (network_recvfrom(client_sock, &in, sizeof (in), 0, NULL, NULL, pkt_drop) < 0) {
+			debug_printf("packet drop\n");
 			continue;
+		}
 
-		if (ntohl(in.type) != PKT_OPENACK || ntohl(in.fd) != open_fd)
+		if (ntohl(in.type) != PKT_OPENACK || ntohl(in.fd) != open_fd) {
+			debug_printf("wrong packet\n");
 			continue;
+		}
 
 		int ret = client_process_open_ack(&in, ack_cnt);
 		if (ret == server_cnt) {
