@@ -14,15 +14,13 @@ static uint32_t open_fd;
 static char open_fname[MAXNAMELEN];
 
 typedef struct write_request {
-	uint32_t fd;
-	uint32_t commit_no;
-	uint32_t write_no;
 	uint32_t byte_offset;
 	uint32_t blocksize;
 	char buffer[MAXBLOCKLEN];
 } write_request_t;
 
 static write_request_t* write_log[MAXWRITES];
+static uint32_t commit_no;
 
 static bool
 has_open_file()
@@ -115,6 +113,31 @@ server_process_pkt_open(void *packet)
 	return 0;
 }
 
+static void
+server_process_pkt_write(void *packet)
+{
+	pkt_write_t *p = (pkt_write_t *) packet;
+	p->fd = ntohl(p->fd);
+	p->commit_no = ntohl(p->commit_no);
+	p->write_no = ntohl(p->write_no);
+	p->byte_offset = ntohl(p->byte_offset);
+	p->blocksize = ntohl(p->blocksize);
+
+	if (p->fd != open_fd || p->commit_no != commit_no || write_log[p->write_no] != NULL) {
+		debug_printf("wrong write request, ignored\n");
+		return;
+	}
+
+	write_request_t *wr = calloc (sizeof (char), sizeof (write_request_t));
+	if (wr == NULL) return;
+
+	wr->byte_offset = p->byte_offset;
+	wr->blocksize = p->blocksize;
+	memcpy(wr->buffer, p->data, p->blocksize);
+	write_log[p->write_no] = wr;
+	debug_printf("server write no %d\n", p->write_no);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -148,6 +171,7 @@ main(int argc, char *argv[])
 		break;
 
 		case PKT_WRITE:
+			server_process_pkt_write(packet);
 		break;
 
 		case PKT_CHECK:

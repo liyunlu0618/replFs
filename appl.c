@@ -43,7 +43,6 @@ main() {
     fprintf( stderr, "Error opening file '%s'\n", fileName );
     return( ErrorExit );
   }
-	return 0;
 
   /**************************************/
   /* Write incrementing numbers to the file */
@@ -63,6 +62,8 @@ main() {
     byteOffset += strlen( strData );
     
   }
+
+	return 0;
 
 
   /**********************************************/

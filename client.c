@@ -39,13 +39,14 @@ static uint32_t open_fd;
 static char open_fname[MAXNAMELEN];
 
 typedef struct write_request {
-	uint32_t fd;
-	uint32_t commit_no;
-	uint32_t write_no;
 	uint32_t byte_offset;
 	uint32_t blocksize;
 	char buffer[MAXBLOCKLEN];
 } write_request_t;
+
+static write_request_t* write_log[MAXWRITES];
+static uint32_t commit_no;
+static uint32_t write_no;
 
 static bool
 has_open_file()
@@ -60,8 +61,6 @@ timeout_triggered(struct timeval *now, struct timeval *last, int diff)
 		+ (now->tv_usec - last->tv_usec) / 1000) >= diff;
 
 }
-
-static write_request_t* write_log[MAXWRITES];
 
 static int
 client_init(unsigned short portNum, int packetLoss, int numServers)
@@ -210,35 +209,59 @@ OpenFile(char * fileName)
 	return client_open_file(fileName);
 }
 
+static int
+client_write_file(int fd, char *buffer, int offset, int blocksize)
+{
+	pkt_write_t out;
+	memset(&out, 0, sizeof (out));
+	write_request_t *wr = calloc(sizeof (char), sizeof(write_request_t));
+	if (wr == NULL)
+		return -1;
+
+	if (fd != open_fd) {
+		debug_printf("wrong file descriptor\n");
+		return -1;
+	}
+
+	if (write_no >= 64 || blocksize > MAXBLOCKLEN) return -1;
+
+	out.type = htonl(PKT_WRITE);
+	out.fd = htonl(open_fd);
+	out.commit_no = htonl(commit_no);
+	out.write_no = htonl(write_no);
+	out.byte_offset = htonl(offset);
+	out.blocksize = htonl(blocksize);
+	memcpy(out.data, buffer, blocksize);
+	debug_printf("writing %s\n", out.data);
+
+	sendto(client_sock, &out, sizeof (out), 0, &client_addr, sizeof (struct sockaddr));
+
+	wr->byte_offset = offset;
+	wr->blocksize = blocksize;
+	memcpy(wr->buffer, buffer, blocksize);
+	write_log[write_no] = wr;
+
+	write_no++;
+	debug_printf("write no %d\n", write_no);
+
+	return blocksize;
+}
+
 /* ------------------------------------------------------------------ */
 
 int
 WriteBlock( int fd, char * buffer, int byteOffset, int blockSize ) {
-  //char strError[64];
-  int bytesWritten;
-
-  ASSERT( fd >= 0 );
-  ASSERT( byteOffset >= 0 );
-  ASSERT( buffer );
-  ASSERT( blockSize >= 0 && blockSize < MaxBlockLength );
+	ASSERT( fd >= 0 );
+	ASSERT( byteOffset >= 0 );
+	ASSERT( buffer );
+	ASSERT( blockSize >= 0 && blockSize < MaxBlockLength );
 
 #ifdef DEBUG
-  printf( "WriteBlock: Writing FD=%d, Offset=%d, Length=%d\n",
-	fd, byteOffset, blockSize );
+	printf( "WriteBlock: Writing FD=%d, Offset=%d, Length=%d\n",
+		fd, byteOffset, blockSize );
 #endif
 
-  if ( lseek( fd, byteOffset, SEEK_SET ) < 0 ) {
-    perror( "WriteBlock Seek" );
-    return -1;
-  }
-
-  if ( ( bytesWritten = write( fd, buffer, blockSize ) ) < 0 ) {
-    perror( "WriteBlock write" );
-    return -1;
-  }
-
-  return( bytesWritten );
-
+	return client_write_file(fd, buffer, byteOffset, blockSize);
 }
 
 /* ------------------------------------------------------------------ */
