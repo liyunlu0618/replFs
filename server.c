@@ -193,7 +193,7 @@ static void
 server_process_pkt_commit(void *packet)
 {
 	pkt_commit_t *p = (pkt_commit_t *)packet;
-	pkt_commitack_t out;
+	pkt_commitabortack_t out;
 
 	p->fd = ntohl(p->fd);
 
@@ -203,9 +203,26 @@ server_process_pkt_commit(void *packet)
 	server_do_write();
 	clear_log();
 
-	out.type = htonl(PKT_COMMITACK);
+	out.type = htonl(PKT_COMMITABORTACK);
 	out.server_id = htonl(server_id);
 	out.fd = htonl(open_fd);
+	sendto(server_sock, &out, sizeof (out), 0, &server_addr, sizeof (struct sockaddr));
+}
+
+static void
+server_process_pkt_abort(void *packet)
+{
+	pkt_abort_t *p = (pkt_abort_t *)packet;
+	pkt_commitabortack_t out;
+
+	p->fd = ntohl(p->fd);
+	if (p->fd != open_fd) return;
+
+	clear_log();
+	out.type = htonl(PKT_COMMITABORTACK);
+	out.server_id = htonl(server_id);
+	out.fd = htonl(open_fd);
+
 	sendto(server_sock, &out, sizeof (out), 0, &server_addr, sizeof (struct sockaddr));
 }
 
@@ -254,6 +271,7 @@ main(int argc, char *argv[])
 		break;
 
 		case PKT_ABORT:
+			server_process_pkt_abort(packet);
 		break;
 
 		default:

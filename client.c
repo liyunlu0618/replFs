@@ -48,6 +48,16 @@ typedef struct write_request {
 static write_request_t* write_log[MAXWRITES];
 static uint32_t write_no;
 
+static void
+clear_log()
+{
+	int i = 0;
+	for ( ; i < MAXWRITES; i++) {
+		free(write_log[i]);
+		write_log[i] = NULL;
+	}
+}
+
 static bool
 has_open_file()
 {
@@ -382,9 +392,9 @@ client_check_write_log()
 }
 
 static int
-client_process_commitack(void *packet, uint32_t *ack_cnt)
+client_process_commitabortack(void *packet, uint32_t *ack_cnt)
 {
-	pkt_commitack_t *p = (pkt_commitack_t *)packet;
+	pkt_commitabortack_t *p = (pkt_commitabortack_t *)packet;
 	p->server_id = ntohl(p->server_id);
 
 	int i = 0;
@@ -409,7 +419,7 @@ client_commit()
 	memset(ack_cnt, 0, sizeof (ack_cnt));
 
 	pkt_commit_t out;
-	pkt_commitack_t in;
+	pkt_commitabortack_t in;
 
 	struct timeval orig, last, now;
 
@@ -448,12 +458,12 @@ client_commit()
 			continue;
 		}
 
-		if (ntohl(in.type) != PKT_COMMITACK && ntohl(in.fd != open_fd)) {
+		if (ntohl(in.type) != PKT_COMMITABORTACK && ntohl(in.fd != open_fd)) {
 			debug_printf("wrong packet\n");
 			continue;
 		}
 
-		ret = client_process_commitack(&in, ack_cnt);
+		ret = client_process_commitabortack(&in, ack_cnt);
 		if (ret == server_cnt) {
 			debug_printf("all ready to commit\n");
 			break;
@@ -462,6 +472,7 @@ client_commit()
 
 	ASSERT(ret < server_cnt);
 	server_cnt = ret;
+	clear_log();
 	return 0;
 }
 
@@ -494,28 +505,94 @@ Commit( int fd ) {
 	return 0;
 }
 
-/* ------------------------------------------------------------------ */
-
-int
-Abort( int fd )
+static int
+client_abort()
 {
-  ASSERT( fd >= 0 );
+	int ret = 0;
+	uint32_t ack_cnt[MAXSERVERS];
+	memset(ack_cnt, 0, sizeof (ack_cnt));
 
-#ifdef DEBUG
-  printf( "Abort: FD=%d\n", fd );
-#endif
+	pkt_abort_t out;
+	pkt_commitabortack_t in;
 
-  /*************************/
-  /* Abort the transaction */
-  /*************************/
+	struct timeval orig, last, now;
 
-  return 0;
+	fd_set fdset;
+
+	struct timeval resend;
+	resend.tv_sec = 0;
+	resend.tv_usec = RESEND * 1000;
+
+	out.type = htonl(PKT_ABORT);
+	out.fd = htonl(open_fd);
+
+	sendto(client_sock, &out, sizeof (out), 0, &client_addr, sizeof (struct sockaddr));
+	gettimeofday(&last, NULL);
+	gettimeofday(&orig, NULL);
+
+	while (1) {
+		gettimeofday(&now, NULL);
+		if (timeout_triggered(&now, &orig, TIMEOUT)) break;
+
+		if (timeout_triggered(&now, &last, RESEND)) {
+			debug_printf("resend triggered\n");
+			sendto(client_sock, &out, sizeof (out), 0, &client_addr, sizeof (struct sockaddr));
+			gettimeofday(&last, NULL);
+		}
+
+		FD_ZERO(&fdset);
+		FD_SET(client_sock, &fdset);
+		if (select(NFDS, &fdset, NULL, NULL, &resend) <= 0) {
+			//debug_printf("wait for socket timed out\n");
+			continue;
+		}
+
+		if (network_recvfrom(client_sock, &in, sizeof (in), 0, NULL, NULL, pkt_drop) < 0) {
+			debug_printf("packet drop\n");
+			continue;
+		}
+
+		if (ntohl(in.type) != PKT_COMMITABORTACK && ntohl(in.fd != open_fd)) {
+			debug_printf("wrong packet\n");
+			continue;
+		}
+
+		ret = client_process_commitabortack(&in, ack_cnt);
+		if (ret == server_cnt) {
+			debug_printf("all ready to commit\n");
+			break;
+		}
+	}
+
+	ASSERT(ret < server_cnt);
+	server_cnt = ret;
+	clear_log();
+	return 0;
 }
 
 /* ------------------------------------------------------------------ */
 
 int
-CloseFile( int fd ) {
+Abort( int fd )
+{
+	ASSERT( fd >= 0 );
+
+#ifdef DEBUG
+	printf( "Abort: FD=%d\n", fd );
+#endif
+
+  /*************************/
+  /* Abort the transaction */
+  /*************************/
+	return client_abort();
+}
+
+/* ------------------------------------------------------------------ */
+
+int
+CloseFile( int fd )
+{
+	int ret;
 
 	ASSERT( fd >= 0 );
 
@@ -526,7 +603,10 @@ CloseFile( int fd ) {
 	/*****************************/
 	/* Check for Commit or Abort */
 	/*****************************/
-	return Commit(fd);
+	ret = Commit(fd);
+	open_fname[0] = '\0';
+
+	return ret;
 }
 
 /* ------------------------------------------------------------------ */
