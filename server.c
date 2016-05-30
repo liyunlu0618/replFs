@@ -109,6 +109,8 @@ server_process_pkt_open(void *packet)
 
 	open_fd = ntohl(p->fd);
 	strncpy(open_fname, p->filename, MAXNAMELEN);
+	open_fname[strlen(p->filename)] = '\0';
+
 	debug_printf("server recv'd open file request: %s, fd: %d\n", p->filename, open_fd);
 	server_send_open_ack();
 	return 0;
@@ -135,7 +137,7 @@ server_process_pkt_write(void *packet)
 	wr->blocksize = p->blocksize;
 	memcpy(wr->buffer, p->data, p->blocksize);
 	write_log[p->write_no] = wr;
-	debug_printf("server write no %d\n", p->write_no);
+	debug_printf("server write no %d offset no %d\n", p->write_no, wr->byte_offset);
 }
 
 static void
@@ -178,13 +180,13 @@ server_do_write()
 	int len = strlen(server_mountpoint) + strlen(open_fname) + 2;
 	fullpath = calloc(sizeof (char), len);
 	snprintf(fullpath, len, "%s/%s", server_mountpoint, open_fname);
-
-	debug_printf("server do write to file %s\n", fullpath);
+	*(fullpath + len - 1) = '\0';
 
 	fd = open(fullpath, O_WRONLY|O_CREAT, S_IRUSR|S_IWUSR);
 
 	for (i = 0; i < MAXWRITES; i++) {
 		if ((wr = write_log[i]) == NULL) break;
+		debug_printf("server do write to file %s at offset %d\n", fullpath, wr->byte_offset);
 		lseek(fd, wr->byte_offset, SEEK_SET);
 		write(fd, wr->buffer, wr->blocksize);
 	}

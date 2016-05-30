@@ -288,6 +288,8 @@ appl7() {
     // not provided
 }
 
+#define BUFSIZE 512
+
 static void
 appl8() {
     // multiple openFiles of the same file. As a consequence,
@@ -298,45 +300,45 @@ appl8() {
     int fd;
     int retVal;
     int i;
-    char commitStrBuf[512];
+    char commitStrBuf[BUFSIZE];
 
-    for( i = 0; i < 512; i++ )
+    for( i = 0; i < BUFSIZE; i++ )
         commitStrBuf[i] = '1';
 
     fd = openFile( "file8" );
 
     // write first transaction starting at offset 512
     for (i = 0; i < 50; i++)
-        retVal = WriteBlock( fd, commitStrBuf, 512 + i * 512 , 512 );
+        retVal = WriteBlock( fd, commitStrBuf, BUFSIZE + i * BUFSIZE , BUFSIZE);
 
     retVal = commit( fd );
     retVal = closeFile( fd );
 
-    for( i = 0; i < 512; i++ )
+    for( i = 0; i < BUFSIZE; i++ )
         commitStrBuf[i] = '2';
 
     fd = openFile( "file8" );
 
     // write second transaction starting at offset 0
-    retVal = WriteBlock( fd, commitStrBuf, 0 , 512 );
+    retVal = WriteBlock( fd, commitStrBuf, 0 , BUFSIZE );
 
     retVal = commit( fd );
     retVal = closeFile( fd );
 
 
-    for( i = 0; i < 512; i++ )
+    for( i = 0; i < BUFSIZE; i++ )
         commitStrBuf[i] = '3';
 
     fd = openFile( "file8" );
 
     // write third transaction starting at offset 50*512
     for (i = 0; i < 50; i++)
-        retVal = WriteBlock( fd, commitStrBuf, 50 * 512 + i * 512 , 512 );
+        retVal = WriteBlock( fd, commitStrBuf, 50 * BUFSIZE + i * BUFSIZE, BUFSIZE );
 
     retVal = commit( fd );
 
     for ( ; i < 100; i++)
-        retVal = WriteBlock( fd, commitStrBuf, 50 * 512 + i * 512 , 512 );
+        retVal = WriteBlock( fd, commitStrBuf, 50 * BUFSIZE + i * BUFSIZE , BUFSIZE );
 
     retVal = commit( fd );
 

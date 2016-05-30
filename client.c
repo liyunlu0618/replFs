@@ -167,6 +167,7 @@ client_open_file(char *filename)
 	out.type = htonl(PKT_OPEN);
 	out.fd = htonl(open_fd);
 	strncpy(out.filename, filename, strlen(filename));
+	out.filename[strlen(filename)] = '\0';
 
 	sendto(client_sock, &out, sizeof (out), 0, &client_addr, sizeof (struct sockaddr));
 	gettimeofday(&last, NULL);
@@ -207,6 +208,7 @@ client_open_file(char *filename)
 		int ret = client_process_open_ack(&in, ack_cnt);
 		if (ret == server_cnt) {
 			strncpy(open_fname, filename, strlen(filename));
+			open_fname[strlen(filename)] = '\0';
 			debug_printf("Open file %s success\n", filename);
 			return open_fd;
 		}
@@ -266,7 +268,7 @@ WriteBlock( int fd, char * buffer, int byteOffset, int blockSize ) {
 	ASSERT( fd >= 0 );
 	ASSERT( byteOffset >= 0 );
 	ASSERT( buffer );
-	ASSERT( blockSize >= 0 && blockSize < MaxBlockLength );
+	ASSERT( blockSize >= 0 && blockSize <= MaxBlockLength );
 
 #ifdef DEBUG
 	printf( "WriteBlock: Writing FD=%d, Offset=%d, Length=%d\n",
