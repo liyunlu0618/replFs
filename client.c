@@ -316,10 +316,8 @@ client_process_checkres(void *packet, uint32_t *ack_cnt)
 }
 
 static int
-client_check_write_log(int fd)
+client_check_write_log()
 {
-	ASSERT(fd == open_fd);
-
 	int ret = 0;
 	uint32_t ack_cnt[MAXSERVERS];
 	memset(ack_cnt, 0, sizeof (ack_cnt));
@@ -384,8 +382,86 @@ client_check_write_log(int fd)
 }
 
 static int
-client_commit(int fd)
+client_process_commitack(void *packet, uint32_t *ack_cnt)
 {
+	pkt_commitack_t *p = (pkt_commitack_t *)packet;
+	p->server_id = ntohl(p->server_id);
+
+	int i = 0;
+	for (i = 0; i < MAXSERVERS; i++) {
+		if (ack_cnt[i] == p->server_id) break;
+		if (ack_cnt[i] == 0)
+			ack_cnt[i] = p->server_id;
+	}
+
+	for (i = 0; i < MAXSERVERS; i++) {
+		if (ack_cnt[i] == 0) break;
+	}
+
+	return i;
+}
+
+static int
+client_commit()
+{
+	int ret = 0;
+	uint32_t ack_cnt[MAXSERVERS];
+	memset(ack_cnt, 0, sizeof (ack_cnt));
+
+	pkt_commit_t out;
+	pkt_commitack_t in;
+
+	struct timeval orig, last, now;
+
+	fd_set fdset;
+
+	struct timeval resend;
+	resend.tv_sec = 0;
+	resend.tv_usec = RESEND * 1000;
+
+	out.type = htonl(PKT_COMMIT);
+	out.fd = htonl(open_fd);
+
+	sendto(client_sock, &out, sizeof (out), 0, &client_addr, sizeof (struct sockaddr));
+	gettimeofday(&last, NULL);
+	gettimeofday(&orig, NULL);
+
+	while (1) {
+		gettimeofday(&now, NULL);
+		if (timeout_triggered(&now, &orig, TIMEOUT)) break;
+
+		if (timeout_triggered(&now, &last, RESEND)) {
+			debug_printf("resend triggered\n");
+			sendto(client_sock, &out, sizeof (out), 0, &client_addr, sizeof (struct sockaddr));
+			gettimeofday(&last, NULL);
+		}
+
+		FD_ZERO(&fdset);
+		FD_SET(client_sock, &fdset);
+		if (select(NFDS, &fdset, NULL, NULL, &resend) <= 0) {
+			//debug_printf("wait for socket timed out\n");
+			continue;
+		}
+
+		if (network_recvfrom(client_sock, &in, sizeof (in), 0, NULL, NULL, pkt_drop) < 0) {
+			debug_printf("packet drop\n");
+			continue;
+		}
+
+		if (ntohl(in.type) != PKT_COMMITACK && ntohl(in.fd != open_fd)) {
+			debug_printf("wrong packet\n");
+			continue;
+		}
+
+		ret = client_process_commitack(&in, ack_cnt);
+		if (ret == server_cnt) {
+			debug_printf("all ready to commit\n");
+			break;
+		}
+	}
+
+	ASSERT(ret < server_cnt);
+	server_cnt = ret;
 	return 0;
 }
 
@@ -408,12 +484,12 @@ Commit( int fd ) {
 	/* - Check that all writes made it to the server(s) */
 	/****************************************************/
 	
-	if (client_check_write_log(fd) < 0) return -1;
+	if (client_check_write_log() < 0) return -1;
 	/****************/
 	/* Commit Phase */
 	/****************/
 
-	if (client_commit(fd) < 0) return -1;
+	if (client_commit(FALSE) < 0) return -1;
 
 	return 0;
 }
@@ -441,22 +517,16 @@ Abort( int fd )
 int
 CloseFile( int fd ) {
 
-  ASSERT( fd >= 0 );
+	ASSERT( fd >= 0 );
 
 #ifdef DEBUG
-  printf( "Close: FD=%d\n", fd );
+	printf( "Close: FD=%d\n", fd );
 #endif
 
 	/*****************************/
 	/* Check for Commit or Abort */
 	/*****************************/
-
-  if ( close( fd ) < 0 ) {
-    perror("Close");
-    return -1;
-  }
-
-  return 0;
+	return Commit(fd);
 }
 
 /* ------------------------------------------------------------------ */

@@ -56,7 +56,6 @@ typedef struct pkt_checkres {
 
 typedef struct pkt_commit {
 	uint32_t type;
-	uint32_t close;
 	uint32_t fd;
 } pkt_commit_t;
 

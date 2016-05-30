@@ -166,6 +166,49 @@ server_process_pkt_check(void *packet)
 	sendto(server_sock, &out, sizeof (out), 0, &server_addr, sizeof (struct sockaddr));
 }
 
+static void
+server_do_write()
+{
+	char *fullpath;
+	write_request_t *wr;
+	int fd;
+	int i = 0;
+
+	int len = strlen(server_mountpoint) + strlen(open_fname) + 2;
+	fullpath = calloc(sizeof (char), len);
+	snprintf(fullpath, len, "%s/%s", server_mountpoint, open_fname);
+
+	fd = open(fullpath, O_WRONLY|O_CREAT, S_IRUSR|S_IWUSR);
+
+	for (i = 0; i < MAXWRITES; i++) {
+		if ((wr = write_log[i]) == NULL) break;
+		lseek(fd, wr->byte_offset, SEEK_SET);
+		write(fd, wr->buffer, wr->blocksize);
+	}
+
+	close(fd);
+}
+
+static void
+server_process_pkt_commit(void *packet)
+{
+	pkt_commit_t *p = (pkt_commit_t *)packet;
+	pkt_commitack_t out;
+
+	p->fd = ntohl(p->fd);
+
+	if (p->fd != open_fd)
+		return;
+
+	server_do_write();
+	clear_log();
+
+	out.type = htonl(PKT_COMMITACK);
+	out.server_id = htonl(server_id);
+	out.fd = htonl(open_fd);
+	sendto(server_sock, &out, sizeof (out), 0, &server_addr, sizeof (struct sockaddr));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -207,6 +250,7 @@ main(int argc, char *argv[])
 		break;
 
 		case PKT_COMMIT:
+			server_process_pkt_commit(packet);
 		break;
 
 		case PKT_ABORT:
