@@ -2,7 +2,6 @@
 #include "packet.h"
 
 #define MAXWRITES	64
-#define REPLFSPORT	44055
 #define MAXPACKETSIZE	1024
 
 static struct sockaddr server_addr;
