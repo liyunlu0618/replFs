@@ -190,6 +190,7 @@ client_open_file(char *filename)
 			continue;
 		}
 
+		memset(&in, 0, sizeof (in));
 		if (network_recvfrom(client_sock, &in, sizeof (in), 0, NULL, NULL, pkt_drop) <= 0) {
 			debug_printf("packet drop\n");
 			continue;
@@ -377,6 +378,7 @@ client_check_write_log()
 			continue;
 		}
 
+		memset(&in, 0, sizeof (in));
 		if (network_recvfrom(client_sock, &in, sizeof (in), 0, NULL, NULL, pkt_drop) <= 0) {
 			debug_printf("packet drop\n");
 			continue;
@@ -468,6 +470,7 @@ client_commit()
 			continue;
 		}
 
+		memset(&in, 0, sizeof (in));
 		if (network_recvfrom(client_sock, &in, sizeof (in), 0, NULL, NULL, pkt_drop) <= 0) {
 			debug_printf("packet drop\n");
 			continue;
@@ -567,6 +570,7 @@ client_abort()
 			continue;
 		}
 
+		memset(&in, 0, sizeof (in));
 		if (network_recvfrom(client_sock, &in, sizeof (in), 0, NULL, NULL, pkt_drop) <= 0) {
 			debug_printf("packet drop\n");
 			continue;

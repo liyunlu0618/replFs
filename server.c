@@ -251,6 +251,7 @@ main(int argc, char *argv[])
 		exit(-1);
 
 	while (1) {
+		memset(packet, 0, sizeof (packet));
 		if (network_recvfrom(server_sock, packet, sizeof (packet),
 			0, NULL, NULL, pkt_drop) <= 0)
 			continue;
