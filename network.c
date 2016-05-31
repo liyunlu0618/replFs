@@ -51,7 +51,7 @@ network_init(unsigned short port, struct sockaddr *addr, int *sock)
 
 	nulladdr.sin_addr.s_addr = htonl(REPLFSGROUP);
 	*sock = nullsock;
-	memcpy(addr, &nulladdr, sizeof(nulladdr));
+	memcpy(addr, (struct sockaddr *)(&nulladdr), sizeof(struct sockaddr));
 
 	return 0;
 }

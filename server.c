@@ -86,7 +86,7 @@ server_init(unsigned short port, int drop_ratio, char *mountpoint)
 static void
 server_send_open_ack()
 {
-	debug_printf("server send open ack\n");
+	debug_printf("server send open ack %d\n", server_id);
 	pkt_openack_t out;
 
 	out.type = htonl(PKT_OPENACK);

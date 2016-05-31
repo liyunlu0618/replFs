@@ -520,7 +520,7 @@ Commit( int fd ) {
 	/* Commit Phase */
 	/****************/
 
-	if (client_commit(FALSE) < 0) return -1;
+	if (client_commit() < 0) return -1;
 
 	return 0;
 }
